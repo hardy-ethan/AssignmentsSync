@@ -3,7 +3,7 @@ const { isEqual } = require('lodash');
 const crypto = require('crypto');
 const moment = require('moment-timezone');
 
-const { CALENDAR_ID, SPREADSHEET_ID } = require('./config.json')
+const { CALENDAR_ID, SPREADSHEET_ID, TIMEZONE } = require('./config.json')
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
@@ -89,7 +89,7 @@ async function getSpreadsheetData(auth) {
 function getEventData(assignment) {
   const originalDateTimeString = `${assignment['Due Date']}|${assignment['Due Time']}`;
 
-  const dueDateAndTime = moment(originalDateTimeString, 'L|LTS');
+  const dueDateAndTime = moment.tz(originalDateTimeString, 'L|LTS', TIMEZONE);
 
   if (!dueDateAndTime.isValid()) {
     throw new Error(`Moment could not parse time "${originalDateTimeString}"`)
@@ -102,11 +102,11 @@ function getEventData(assignment) {
     description: `Difficulty: ${assignment.Difficulty}\nPriority: ${assignment.Priority}\nNotes: ${assignment.Notes}`,
     start: {
       dateTime: eventDateTime,
-      timeZone: 'America/New_York'
+      timeZone: TIMEZONE
     },
     end: {
       dateTime: eventDateTime,
-      timeZone: 'America/New_York'
+      timeZone: TIMEZONE
     },
     extendedProperties: {
       private: { uuid: assignment.UUID }

@@ -1,7 +1,7 @@
 const { google } = require('googleapis');
 const { isEqual } = require('lodash');
 const crypto = require('crypto');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 const { CALENDAR_ID, SPREADSHEET_ID } = require('./config.json')
 
@@ -113,17 +113,17 @@ function getEventData(assignment) {
 }
 
 function eventsAreEqual(event1, event2) {
-  return isEqual({
-    summary: event1.summary,
-    description: event1.description,
-    start: event1.start,
-    end: event1.end
-  }, {
-    summary: event2.summary,
-    description: event2.description,
-    start: event2.start,
-    end: event2.end
+  const normalizeEvent = (event) => ({
+    summary: event.summary,
+    description: event.description,
+    start: moment.tz(event.start.dateTime, event.start.timeZone).unix(),
+    end: moment.tz(event.end.dateTime, event.end.timeZone).unix()
   });
+
+  const a = normalizeEvent(event1);
+  const b = normalizeEvent(event2);
+
+  return isEqual(a, b);
 }
 
 async function syncWithCalendar() {
@@ -135,7 +135,6 @@ async function syncWithCalendar() {
     const existingEvents = await retryWithBackoff(() => 
       calendar.events.list({
         calendarId: CALENDAR_ID,
-        timeMin: new Date().toISOString(),
       })
     );
 

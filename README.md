@@ -1,0 +1,1 @@
+Tool to sync my assignments spreadsheet with a Google Calendar so I can receive reminder notifications.

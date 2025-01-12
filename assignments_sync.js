@@ -20,7 +20,7 @@ async function retryWithBackoff(operation, maxRetries = 5, baseDelay = 1000) {
     try {
       return await operation();
     } catch (error) {
-      if (error.response?.status === 429 && attempt < maxRetries - 1) {
+      if (error.response?.status === 429) {
         const delay = baseDelay * Math.pow(2, attempt);
         const jitter = Math.random() * 1000;
         console.log(`Rate limited. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${delay}ms`);
@@ -30,6 +30,8 @@ async function retryWithBackoff(operation, maxRetries = 5, baseDelay = 1000) {
       throw error;
     }
   }
+
+  throw new Error("Exceeded max retries.");
 }
 
 async function authorize() {

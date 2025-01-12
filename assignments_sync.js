@@ -155,7 +155,7 @@ async function syncWithCalendar() {
               requestBody: eventData,
             })
           );
-          console.log('Updated event:', assignment.Name);
+          console.log('Updated event:', eventData.summary);
         }
         existingEventMap.delete(assignment.UUID);
       } else {
@@ -165,7 +165,7 @@ async function syncWithCalendar() {
             requestBody: eventData,
           })
         );
-        console.log('Created event:', assignment.Name);
+        console.log('Created event:', eventData.summary);
       }
     }
 

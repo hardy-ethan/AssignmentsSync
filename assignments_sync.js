@@ -130,6 +130,8 @@ function eventsAreEqual(event1, event2) {
 
 async function syncWithCalendar() {
   try {
+    console.log(`Syncing calendar at ${moment().toLocaleString()}...`)
+
     const auth = await authorize();
     const assignments = await getSpreadsheetData(auth);
     const calendar = google.calendar({ version: 'v3', auth });
@@ -180,6 +182,8 @@ async function syncWithCalendar() {
       );
       console.log('Deleted event:', event.summary);
     }
+
+    console.log(`Sync complete at ${moment().toLocaleString()}!`)
   } catch (error) {
     console.error('Error:', error.response?.data || error);
   }

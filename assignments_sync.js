@@ -10,6 +10,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets'
 ];
 const RANGE = 'WN25!A2:I';
+const LAST_UPDATED_CELL = 'WN25!K1';
 
 async function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -40,6 +41,23 @@ async function authorize() {
     scopes: SCOPES,
   });
   return auth.getClient();
+}
+
+async function updateLastSyncTime(sheets) {
+  const timestamp = moment().tz(TIMEZONE).format('M/D/YYYY H:mm:ss z');
+
+  await retryWithBackoff(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: LAST_UPDATED_CELL,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[timestamp]]
+      }
+    })
+  );
+  
+  console.log(`Updated last sync time to ${timestamp}`);
 }
 
 async function getSpreadsheetData(auth) {
@@ -83,7 +101,7 @@ async function getSpreadsheetData(auth) {
     });
   }
 
-  return data;
+  return { data, sheets };
 }
 
 function getEventData(assignment) {
@@ -133,7 +151,7 @@ async function syncWithCalendar() {
     console.log(`Syncing calendar at ${moment().toLocaleString()}...`)
 
     const auth = await authorize();
-    const assignments = await getSpreadsheetData(auth);
+    const { data: assignments, sheets } = await getSpreadsheetData(auth);
     const calendar = google.calendar({ version: 'v3', auth });
 
     const existingEvents = await retryWithBackoff(() =>
@@ -182,6 +200,9 @@ async function syncWithCalendar() {
       );
       console.log('Deleted event:', event.summary);
     }
+
+    // Update the last sync time
+    await updateLastSyncTime(sheets);
 
     console.log(`Sync complete at ${moment().toLocaleString()}!`)
   } catch (error) {

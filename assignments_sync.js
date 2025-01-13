@@ -60,6 +60,19 @@ async function updateLastSyncTime(sheets) {
   console.log(`Updated last sync time to ${timestamp}`);
 }
 
+async function throwIfSpreadsheetChanged(originalData) {
+  const checkResponse = await retryWithBackoff(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: RANGE,
+    })
+  );
+
+  if (!isEqual(originalData, checkResponse.data.values)) {
+    throw new Error('Spreadsheet required updating but content changed during sync!');
+  }
+}
+
 async function getSpreadsheetData(auth) {
   const sheets = google.sheets({ version: 'v4', auth });
   const response = await retryWithBackoff(() =>
@@ -70,22 +83,17 @@ async function getSpreadsheetData(auth) {
   );
 
   const data = [];
+  const uuidsToBeUpdated = [];
 
   for (const [index, row] of Object.entries(response.data.values)) {
     const uuid = row[8] || crypto.randomUUID();
 
     // If UUID was generated, update spreadsheet
     if (!row[8]) {
-      await retryWithBackoff(() =>
-        sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `WN25!I${Number(index) + 2}`, // We query starting at A2
-          valueInputOption: 'RAW',
-          requestBody: {
-            values: [[uuid]]
-          }
-        })
-      );
+      await throwIfSpreadsheetChanged(response.data.values);
+    
+      // Add one to index for one-based indexing, then another one to skip the header
+      uuidsToBeUpdated.push({rowIndex: index + 2, uuid: uuid})
     }
 
     data.push({
@@ -99,6 +107,21 @@ async function getSpreadsheetData(auth) {
       Notes: row[7] ?? "Unknown",
       UUID: uuid
     });
+  }
+
+  for (const {rowIndex, uuid} of uuidsToBeUpdated) {
+    await throwIfSpreadsheetChanged(response.data.values);
+
+    await retryWithBackoff(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `WN25!I${rowIndex}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[uuid]]
+        }
+      })
+    );
   }
 
   return { data, sheets };

@@ -56,7 +56,7 @@ async function updateLastSyncTime(sheets) {
       }
     })
   );
-  
+
   console.log(`Updated last sync time to ${timestamp}`);
 }
 
@@ -91,9 +91,9 @@ async function getSpreadsheetData(auth) {
     // If UUID was generated, update spreadsheet
     if (!row[8]) {
       await throwIfSpreadsheetChanged(response.data.values);
-    
+
       // Add one to index for one-based indexing, then another one to skip the header
-      uuidsToBeUpdated.push({rowIndex: index + 2, uuid: uuid})
+      uuidsToBeUpdated.push({ rowIndex: index + 2, uuid: uuid })
     }
 
     data.push({
@@ -109,7 +109,7 @@ async function getSpreadsheetData(auth) {
     });
   }
 
-  for (const {rowIndex, uuid} of uuidsToBeUpdated) {
+  for (const { rowIndex, uuid } of uuidsToBeUpdated) {
     await throwIfSpreadsheetChanged(response.data.values);
 
     await retryWithBackoff(() =>

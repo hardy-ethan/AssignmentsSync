@@ -137,9 +137,10 @@ function getEventData(assignment) {
   }
 
   const eventDateTime = dueDateAndTime.toISOString(true);
+  const summary = `${assignment.Status === '2 - Done' ? "DONE - " : ""}${assignment.Origin}: ${assignment.Name}`
 
   return {
-    summary: `${assignment.Origin}: ${assignment.Name}`,
+    summary: summary,
     description: `Difficulty: ${assignment.Difficulty}\nPriority: ${assignment.Priority}\nNotes: ${assignment.Notes}`,
     start: {
       dateTime: eventDateTime,

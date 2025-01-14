@@ -97,14 +97,14 @@ async function getSpreadsheetData(auth) {
     }
 
     data.push({
-      Origin: row[0] ?? "Unknown",
-      Name: row[1] ?? "Unknown",
-      'Due Date': row[2] ?? "Unknown",
-      'Due Time': row[3] ?? "Unknown",
-      Status: row[4] ?? "Unknown",
-      Difficulty: row[5] ?? "Unknown",
-      Priority: row[6] ?? "Unknown",
-      Notes: row[7] ?? "Unknown",
+      Origin: row[0] || "Unknown",
+      Name: row[1] || "Unknown",
+      'Due Date': row[2] || "Unknown",
+      'Due Time': row[3] || "Unknown",
+      Status: row[4] || "Unknown",
+      Difficulty: row[5] || "Unknown",
+      Priority: row[6] || "Unknown",
+      Notes: row[7] || "Unknown",
       UUID: uuid
     });
   }

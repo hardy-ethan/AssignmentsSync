@@ -60,15 +60,29 @@ async function updateLastSyncTime(sheets) {
   console.log(`Updated last sync time to ${timestamp}`);
 }
 
-async function throwIfSpreadsheetChanged(originalData) {
+// Fill empty columns with ""
+async function getNormalizedSpreadsheet(sheets) {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: RANGE,
+  });
+
+  for (let i = 0; i < response.data.values.length; i++) {
+    if (response.data.values[i].length !== 9) {
+      response.data.values[i].push(...(new Array(9-response.data.values[i].length).fill("")))
+    }
+  }
+
+  return response
+}
+
+async function throwIfSpreadsheetChanged(originalResponse, sheets) {
   const checkResponse = await retryWithBackoff(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
-    })
+    getNormalizedSpreadsheet(sheets)
   );
 
-  if (!isEqual(originalData, checkResponse.data.values)) {
+  if (!isEqual(originalResponse, checkResponse.data.values)) {
+    console.log(JSON.stringify(originalResponse, null, 4), "======\n", JSON.stringify(checkResponse.data.values, null, 4))
     throw new Error('Spreadsheet required updating but content changed during sync!');
   }
 }
@@ -76,24 +90,25 @@ async function throwIfSpreadsheetChanged(originalData) {
 async function getSpreadsheetData(auth) {
   const sheets = google.sheets({ version: 'v4', auth });
   const response = await retryWithBackoff(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
-    })
+    getNormalizedSpreadsheet(sheets)
   );
+
+  const originalValues = response.data.values;
 
   const data = [];
   const uuidsToBeUpdated = [];
 
-  for (const [index, row] of Object.entries(response.data.values)) {
+  for (let i = 0; i < originalValues.length; i++) {
+    const row = originalValues[i];
+    
     const uuid = row[8] || crypto.randomUUID();
 
     // If UUID was generated, update spreadsheet
     if (!row[8]) {
-      await throwIfSpreadsheetChanged(response.data.values);
+      await throwIfSpreadsheetChanged(originalValues, sheets);
 
       // Add one to index for one-based indexing, then another one to skip the header
-      uuidsToBeUpdated.push({ rowIndex: index + 2, uuid: uuid })
+      uuidsToBeUpdated.push({ rowIndex: i + 2, uuid: uuid })
     }
 
     data.push({
@@ -109,8 +124,10 @@ async function getSpreadsheetData(auth) {
     });
   }
 
+  const newValues = originalValues;
+
   for (const { rowIndex, uuid } of uuidsToBeUpdated) {
-    await throwIfSpreadsheetChanged(response.data.values);
+    await throwIfSpreadsheetChanged(originalValues, sheets);
 
     await retryWithBackoff(() =>
       sheets.spreadsheets.values.update({
@@ -122,6 +139,8 @@ async function getSpreadsheetData(auth) {
         }
       })
     );
+
+    newValues[rowIndex-2][8] = uuid;
   }
 
   return { data, sheets };

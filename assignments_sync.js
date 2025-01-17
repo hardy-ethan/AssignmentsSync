@@ -5,6 +5,47 @@ const moment = require('moment-timezone');
 
 const { CALENDAR_ID, SPREADSHEET_ID, TIMEZONE } = require('./config.json')
 
+let logMessages = [];
+
+function getLogMessageFromLogCall(args) {
+  const timestamp = moment().tz(TIMEZONE).format('M/D/YYYY H:mm:ss z');
+  const message = args.map(arg => 
+    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+  ).join(' ');
+
+  return [timestamp, message];
+}
+
+function logNormal(...args) {
+  logMessages.push(getLogMessageFromLogCall(args));
+  console.log(...args);
+};
+
+function logError(...args) {
+  const [timestamp, message] = getLogMessageFromLogCall(args);
+  logMessages.push([timestamp, `ERROR: ${message}`]);
+  console.error(...args);
+};
+
+async function appendToLog(auth) {
+  if (logMessages.length === 0) return;
+
+  const sheets = google.sheets({ version: 'v4', auth });
+  
+  // Append logs to the Log sheet
+  await retryWithBackoff(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Log!A:B',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: logMessages
+      }
+    })
+  );
+}
+
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/spreadsheets'
@@ -24,7 +65,7 @@ async function retryWithBackoff(operation, maxRetries = 5, baseDelay = 1000) {
       if (error.response?.status === 429) {
         const delay = baseDelay * Math.pow(2, attempt);
         const jitter = Math.random() * 1000;
-        console.log(`Rate limited. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${delay}ms`);
+        logNormal(`Rate limited. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${delay}ms`);
         await wait(delay + jitter);
         continue;
       }
@@ -57,7 +98,7 @@ async function updateLastSyncTime(sheets) {
     })
   );
 
-  console.log(`Updated last sync time to ${timestamp}`);
+  logNormal(`Updated last sync time to ${timestamp}`);
 }
 
 // Fill empty columns with ""
@@ -82,7 +123,7 @@ async function throwIfSpreadsheetChanged(originalResponse, sheets) {
   );
 
   if (!isEqual(originalResponse, checkResponse.data.values)) {
-    console.log(JSON.stringify(originalResponse, null, 4), "======\n", JSON.stringify(checkResponse.data.values, null, 4))
+    logNormal(JSON.stringify(originalResponse, null, 4), "======\n", JSON.stringify(checkResponse.data.values, null, 4))
     throw new Error('Spreadsheet required updating but content changed during sync!');
   }
 }
@@ -191,7 +232,7 @@ function eventsAreEqual(event1, event2) {
 
 async function syncWithCalendar() {
   try {
-    console.log(`Syncing calendar at ${moment().toLocaleString()}...`)
+    logNormal(`Syncing calendar at ${moment().toLocaleString()}...`)
 
     const auth = await authorize();
     const { data: assignments, sheets } = await getSpreadsheetData(auth);
@@ -220,7 +261,7 @@ async function syncWithCalendar() {
               requestBody: eventData,
             })
           );
-          console.log('Updated event:', eventData.summary);
+          logNormal('Updated event:', eventData.summary);
         }
         existingEventMap.delete(assignment.UUID);
       } else {
@@ -230,7 +271,7 @@ async function syncWithCalendar() {
             requestBody: eventData,
           })
         );
-        console.log('Created event:', eventData.summary);
+        logNormal('Created event:', eventData.summary);
       }
     }
 
@@ -241,15 +282,26 @@ async function syncWithCalendar() {
           eventId: event.id,
         })
       );
-      console.log('Deleted event:', event.summary);
+      logNormal('Deleted event:', event.summary);
     }
 
     // Update the last sync time
     await updateLastSyncTime(sheets);
 
-    console.log(`Sync complete at ${moment().toLocaleString()}!`)
+    logNormal(`Sync complete at ${moment().toLocaleString()}!`)
+
+    // Append all collected logs before terminating
+    await appendToLog(auth);
   } catch (error) {
-    console.error('Error:', error.response?.data || error);
+    logError('Error:', error.response?.data || error);
+
+    // Try to log the error even if sync failed
+    try {
+      const auth = await authorize();
+      await appendToLog(auth);
+    } catch (logError) {
+      console.error('Failed to write to log:', logError);
+    }
   }
 }
 

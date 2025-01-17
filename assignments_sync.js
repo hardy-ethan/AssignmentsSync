@@ -16,7 +16,7 @@ function getLogMessageFromLogCall(args) {
   return [timestamp, message];
 }
 
-function logNormal(...args) {
+function logAndSendToSheet(...args) {
   logMessages.push(getLogMessageFromLogCall(args));
   console.log(...args);
 };
@@ -65,7 +65,7 @@ async function retryWithBackoff(operation, maxRetries = 5, baseDelay = 1000) {
       if (error.response?.status === 429) {
         const delay = baseDelay * Math.pow(2, attempt);
         const jitter = Math.random() * 1000;
-        logNormal(`Rate limited. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${delay}ms`);
+        logAndSendToSheet(`Rate limited. Attempt ${attempt + 1}/${maxRetries}. Retrying in ${delay}ms`);
         await wait(delay + jitter);
         continue;
       }
@@ -98,7 +98,7 @@ async function updateLastSyncTime(sheets) {
     })
   );
 
-  logNormal(`Updated last sync time to ${timestamp}`);
+  console.log(`Updated last sync time to ${timestamp}`);
 }
 
 // Fill empty columns with ""
@@ -123,7 +123,6 @@ async function throwIfSpreadsheetChanged(originalResponse, sheets) {
   );
 
   if (!isEqual(originalResponse, checkResponse.data.values)) {
-    logNormal(JSON.stringify(originalResponse, null, 4), "======\n", JSON.stringify(checkResponse.data.values, null, 4))
     throw new Error('Spreadsheet required updating but content changed during sync!');
   }
 }
@@ -232,7 +231,7 @@ function eventsAreEqual(event1, event2) {
 
 async function syncWithCalendar() {
   try {
-    logNormal(`Syncing calendar at ${moment().toLocaleString()}...`)
+    console.log(`Syncing calendar at ${moment().toLocaleString()}...`)
 
     const auth = await authorize();
     const { data: assignments, sheets } = await getSpreadsheetData(auth);
@@ -261,7 +260,7 @@ async function syncWithCalendar() {
               requestBody: eventData,
             })
           );
-          logNormal('Updated event:', eventData.summary);
+          logAndSendToSheet('Updated event:', eventData.summary);
         }
         existingEventMap.delete(assignment.UUID);
       } else {
@@ -271,7 +270,7 @@ async function syncWithCalendar() {
             requestBody: eventData,
           })
         );
-        logNormal('Created event:', eventData.summary);
+        logAndSendToSheet('Created event:', eventData.summary);
       }
     }
 
@@ -282,13 +281,13 @@ async function syncWithCalendar() {
           eventId: event.id,
         })
       );
-      logNormal('Deleted event:', event.summary);
+      logAndSendToSheet('Deleted event:', event.summary);
     }
 
     // Update the last sync time
     await updateLastSyncTime(sheets);
 
-    logNormal(`Sync complete at ${moment().toLocaleString()}!`)
+    console.log(`Sync complete at ${moment().toLocaleString()}!`)
 
     // Append all collected logs before terminating
     await appendToLog(auth);

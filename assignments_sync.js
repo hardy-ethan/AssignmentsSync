@@ -108,6 +108,8 @@ async function getNormalizedSpreadsheet(sheets) {
     range: RANGE,
   });
 
+  response.data.values = response.data.values ?? [];
+
   for (let i = 0; i < response.data.values.length; i++) {
     if (response.data.values[i].length !== 9) {
       response.data.values[i].push(...(new Array(9-response.data.values[i].length).fill("")))

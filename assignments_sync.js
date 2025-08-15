@@ -3,7 +3,7 @@ const { isEqual } = require('lodash');
 const crypto = require('crypto');
 const moment = require('moment-timezone');
 
-const { CALENDAR_ID, SPREADSHEET_ID, TIMEZONE } = require('./config.json')
+const { CALENDAR_ID, SPREADSHEET_ID, SEMESTER_ID, TIMEZONE } = require('./config.json')
 
 let logMessages = [];
 
@@ -50,8 +50,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/spreadsheets'
 ];
-const RANGE = 'WN25!A2:I';
-const LAST_UPDATED_CELL = 'WN25!K1';
+const RANGE = `${SEMESTER_ID}!A2:I`;
+const LAST_UPDATED_CELL = `${SEMESTER_ID}!K1`;
 
 async function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -172,7 +172,7 @@ async function getSpreadsheetData(auth) {
     await retryWithBackoff(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `WN25!I${rowIndex}`,
+        range: `${SEMESTER_ID}!I${rowIndex}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [[uuid]]

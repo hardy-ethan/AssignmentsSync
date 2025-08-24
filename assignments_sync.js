@@ -210,11 +210,11 @@ async function getAllCalendarEvents(calendar) {
     pageToken = response.data.nextPageToken;
     
     if (pageToken) {
-      logAndSendToSheet(`Retrieved ${allEvents.length} events, continuing pagination...`);
+      console.log(`Retrieved ${allEvents.length} events, continuing pagination...`);
     }
   } while (pageToken);
 
-  logAndSendToSheet(`Retrieved total of ${allEvents.length} calendar events`);
+  console.log(`Retrieved total of ${allEvents.length} calendar events`);
   return allEvents;
 }
 

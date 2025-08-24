@@ -242,6 +242,7 @@ async function syncWithCalendar() {
     const existingEvents = await retryWithBackoff(() =>
       calendar.events.list({
         calendarId: CALENDAR_ID,
+        maxResults: 2500
       })
     );
 

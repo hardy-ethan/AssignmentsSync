@@ -147,8 +147,6 @@ async function getSpreadsheetData(auth) {
 
     // If UUID was generated, update spreadsheet
     if (!row[8]) {
-      await throwIfSpreadsheetChanged(originalValues, sheets);
-
       // Add one to index for one-based indexing, then another one to skip the header
       uuidsToBeUpdated.push({ rowIndex: i + 2, uuid: uuid })
     }
@@ -166,23 +164,29 @@ async function getSpreadsheetData(auth) {
     });
   }
 
-  const newValues = originalValues;
-
-  for (const { rowIndex, uuid } of uuidsToBeUpdated) {
+  if (uuidsToBeUpdated.length > 0) {
     await throwIfSpreadsheetChanged(originalValues, sheets);
 
+    const batchUpdateData = uuidsToBeUpdated.map(({ rowIndex, uuid }) => ({
+      range: `${SEMESTER_ID}!I${rowIndex}`,
+      values: [[uuid]]
+    }));
+
     await retryWithBackoff(() =>
-      sheets.spreadsheets.values.update({
+      sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SEMESTER_ID}!I${rowIndex}`,
-        valueInputOption: 'RAW',
         requestBody: {
-          values: [[uuid]]
+          valueInputOption: 'RAW',
+          data: batchUpdateData
         }
       })
     );
 
-    newValues[rowIndex-2][8] = uuid;
+    // Update the local copy
+    const newValues = originalValues;
+    for (const { rowIndex, uuid } of uuidsToBeUpdated) {
+      newValues[rowIndex-2][8] = uuid;
+    }
   }
 
   return { data, sheets };

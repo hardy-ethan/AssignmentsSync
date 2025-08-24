@@ -192,6 +192,32 @@ async function getSpreadsheetData(auth) {
   return { data, sheets };
 }
 
+// New function to get all calendar events with pagination
+async function getAllCalendarEvents(calendar) {
+  const allEvents = [];
+  let pageToken = undefined;
+
+  do {
+    const response = await retryWithBackoff(() =>
+      calendar.events.list({
+        calendarId: CALENDAR_ID,
+        maxResults: 2500,
+        pageToken: pageToken
+      })
+    );
+
+    allEvents.push(...response.data.items);
+    pageToken = response.data.nextPageToken;
+    
+    if (pageToken) {
+      logAndSendToSheet(`Retrieved ${allEvents.length} events, continuing pagination...`);
+    }
+  } while (pageToken);
+
+  logAndSendToSheet(`Retrieved total of ${allEvents.length} calendar events`);
+  return allEvents;
+}
+
 function getEventData(assignment) {
   const originalDateTimeString = `${assignment['Due Date']}|${assignment['Due Time']}`;
 
@@ -243,15 +269,11 @@ async function syncWithCalendar() {
     const { data: assignments, sheets } = await getSpreadsheetData(auth);
     const calendar = google.calendar({ version: 'v3', auth });
 
-    const existingEvents = await retryWithBackoff(() =>
-      calendar.events.list({
-        calendarId: CALENDAR_ID,
-        maxResults: 2500
-      })
-    );
+    // Use the new paginated function
+    const existingEvents = await getAllCalendarEvents(calendar);
 
     const existingEventMap = new Map(
-      existingEvents.data.items.map(event => [event.extendedProperties?.private?.uuid, event])
+      existingEvents.map(event => [event.extendedProperties?.private?.uuid, event])
     );
 
     for (const assignment of assignments) {

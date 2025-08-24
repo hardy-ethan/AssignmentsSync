@@ -275,6 +275,17 @@ async function syncWithCalendar() {
     const existingEventMap = new Map(
       existingEvents.map(event => [event.extendedProperties?.private?.uuid, event])
     );
+    
+    // Delete duplicate events for when user accidentally duplicates UUIDs
+    for (const event of existingEvents) {
+      if (!Object.is(event, existingEventMap.get(event.extendedProperties?.private?.uuid))) {
+        calendar.events.delete({
+          calendarId: CALENDAR_ID,
+          eventId: event.id,
+        });
+        logAndSendToSheet('Deleted duplicate event:', event.summary);
+      }
+    } 
 
     for (const assignment of assignments) {
       const eventData = getEventData(assignment);

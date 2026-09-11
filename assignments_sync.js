@@ -5,6 +5,8 @@ const moment = require('moment-timezone');
 
 const { CALENDAR_ID, SPREADSHEET_ID, SEMESTER_ID, TIMEZONE } = require('./config.json')
 
+const SYNC_INTERVAL_MINUTES = 5;
+
 let logMessages = [];
 
 function getLogMessageFromLogCall(args) {
@@ -44,6 +46,8 @@ async function appendToLog(auth) {
       }
     })
   );
+
+  logMessages = [];
 }
 
 const SCOPES = [
@@ -344,4 +348,11 @@ async function syncWithCalendar() {
   }
 }
 
-syncWithCalendar();
+async function runSyncLoop() {
+  while (true) {
+    await syncWithCalendar();
+    await wait(SYNC_INTERVAL_MINUTES * 60 * 1000);
+  }
+}
+
+runSyncLoop();
